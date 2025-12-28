@@ -1,67 +1,29 @@
 # Makefile for converting audio files to M4B format
 # This Makefile automatically generates targets for all files in the input/ directory
 # and converts them to M4B format in the output/ directory
+# Supports filenames with spaces
 
 # Define directories
 INPUT_DIR := input
 OUTPUT_DIR := output
 
-# Find all audio files in the input directory
-# Common audio formats: mp3, wav, flac, aac, ogg, m4a, wma
-INPUT_FILES := $(wildcard $(INPUT_DIR)/*.mp3 $(INPUT_DIR)/*.wav $(INPUT_DIR)/*.flac $(INPUT_DIR)/*.aac $(INPUT_DIR)/*.ogg $(INPUT_DIR)/*.m4a $(INPUT_DIR)/*.wma)
-
-# Generate output file names with .m4b extension
-OUTPUT_FILES := $(patsubst $(INPUT_DIR)/%,$(OUTPUT_DIR)/%.m4b,$(basename $(INPUT_FILES)))
-
-# Default target
+# Default target - uses shell to handle filenames with spaces
 .PHONY: all clean help
 
-all: $(OUTPUT_FILES)
-
-# Pattern rules for converting specific audio formats to M4B
-# Each rule converts to M4A first, then renames to M4B
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.mp3
-	@echo "Converting MP3: $< to $@"
+all:
 	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a aac -b:a 128k -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.wav
-	@echo "Converting WAV: $< to $@"
-	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a aac -b:a 128k -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.flac
-	@echo "Converting FLAC: $< to $@"
-	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a aac -b:a 128k -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.aac
-	@echo "Converting AAC: $< to $@"
-	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a aac -b:a 128k -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.ogg
-	@echo "Converting OGG: $< to $@"
-	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a aac -b:a 128k -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.m4a
-	@echo "Converting M4A: $< to $@"
-	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a copy -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
-
-$(OUTPUT_DIR)/%.m4b: $(INPUT_DIR)/%.wma
-	@echo "Converting WMA: $< to $@"
-	@mkdir -p $(OUTPUT_DIR)
-	ffmpeg -i "$<" -c:a aac -b:a 128k -movflags +faststart "$(basename $@).m4a"
-	mv "$(basename $@).m4a" "$@"
+	@find $(INPUT_DIR) -maxdepth 1 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.aac" -o -iname "*.ogg" -o -iname "*.m4a" -o -iname "*.wma" \) | while IFS= read -r input_file; do \
+		basename="$$(basename "$$input_file")"; \
+		name_no_ext="$${basename%.*}"; \
+		output_file="$(OUTPUT_DIR)/$$name_no_ext.m4b"; \
+		if [ ! -f "$$output_file" ]; then \
+			echo "Converting: $$input_file -> $$output_file"; \
+			ffmpeg -i "$$input_file" -c:a aac -b:a 128k -movflags +faststart "$${output_file%.m4b}.m4a" && \
+			mv "$${output_file%.m4b}.m4a" "$$output_file"; \
+		else \
+			echo "Skipping (already exists): $$output_file"; \
+		fi; \
+	done
 
 # Clean generated files
 clean:
@@ -93,17 +55,12 @@ help:
 # Show current status
 status:
 	@echo "Input files found:"
-	@if [ -n "$(INPUT_FILES)" ]; then \
-		for file in $(INPUT_FILES); do echo "  $$file"; done; \
-	else \
-		echo "  No supported audio files found in $(INPUT_DIR)/"; \
-	fi
+	@find $(INPUT_DIR) -maxdepth 1 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.aac" -o -iname "*.ogg" -o -iname "*.m4a" -o -iname "*.wma" \) | while IFS= read -r f; do echo "  $$f"; done || echo "  No supported audio files found in $(INPUT_DIR)/"
 	@echo ""
 	@echo "Output files that will be generated:"
-	@if [ -n "$(OUTPUT_FILES)" ]; then \
-		for file in $(OUTPUT_FILES); do echo "  $$file"; done; \
-	else \
-		echo "  No output files (no input files found)"; \
-	fi
+	@find $(INPUT_DIR) -maxdepth 1 -type f \( -iname "*.mp3" -o -iname "*.wav" -o -iname "*.flac" -o -iname "*.aac" -o -iname "*.ogg" -o -iname "*.m4a" -o -iname "*.wma" \) | while IFS= read -r f; do \
+		name="$$(basename "$$f")"; \
+		echo "  $(OUTPUT_DIR)/$${name%.*}.m4b"; \
+	done || echo "  No output files (no input files found)"
 
 .PHONY: status
