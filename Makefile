@@ -16,10 +16,25 @@ all:
 		basename="$$(basename "$$input_file")"; \
 		name_no_ext="$${basename%.*}"; \
 		output_file="$(OUTPUT_DIR)/$$name_no_ext.m4b"; \
+		cover=""; \
+		for ext in jpg jpeg png JPG JPEG PNG; do \
+			if [ -f "$(INPUT_DIR)/$$name_no_ext.$$ext" ]; then \
+				cover="$(INPUT_DIR)/$$name_no_ext.$$ext"; break; \
+			fi; \
+		done; \
+		if [ -z "$$cover" ]; then \
+			cover=$$(find $(INPUT_DIR) -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | sort | head -1); \
+		fi; \
 		if [ ! -f "$$output_file" ]; then \
-			echo "Converting: $$input_file -> $$output_file"; \
-			ffmpeg -i "$$input_file" -vn -threads 0 -c:a aac -b:a 128k -movflags +faststart "$${output_file%.m4b}.m4a" && \
-			mv "$${output_file%.m4b}.m4a" "$$output_file"; \
+			tmp_m4a="$${output_file%.m4b}.m4a"; \
+			if [ -n "$$cover" ]; then \
+				echo "Converting: $$input_file (+ cover $$cover) -> $$output_file"; \
+				ffmpeg -i "$$input_file" -i "$$cover" -map 0:a -map 1:v -threads 0 -c:a aac -b:a 128k -c:v copy -disposition:v:0 attached_pic -movflags +faststart "$$tmp_m4a"; \
+			else \
+				echo "Converting: $$input_file -> $$output_file"; \
+				ffmpeg -i "$$input_file" -vn -threads 0 -c:a aac -b:a 128k -movflags +faststart "$$tmp_m4a"; \
+			fi && \
+			mv "$$tmp_m4a" "$$output_file"; \
 		else \
 			echo "Skipping (already exists): $$output_file"; \
 		fi; \
@@ -50,8 +65,15 @@ concat:
 		echo "file '$$(cd $(INPUT_DIR) && pwd)/$$(basename "$$f")'"; \
 	done > "$$concat_list"; \
 	echo "Concatenating $$(wc -l < "$$concat_list" | tr -d ' ') files..."; \
-	ffmpeg -f concat -safe 0 -i "$$concat_list" -vn -threads 0 -c:a aac -b:a 128k -movflags +faststart "$${output_file%.m4b}.m4a" && \
-	mv "$${output_file%.m4b}.m4a" "$$output_file" && \
+	cover=$$(find $(INPUT_DIR) -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) | sort | head -1); \
+	tmp_m4a="$${output_file%.m4b}.m4a"; \
+	if [ -n "$$cover" ]; then \
+		echo "Embedding cover: $$cover"; \
+		ffmpeg -f concat -safe 0 -i "$$concat_list" -i "$$cover" -map 0:a -map 1:v -threads 0 -c:a aac -b:a 128k -c:v copy -disposition:v:0 attached_pic -movflags +faststart "$$tmp_m4a"; \
+	else \
+		ffmpeg -f concat -safe 0 -i "$$concat_list" -vn -threads 0 -c:a aac -b:a 128k -movflags +faststart "$$tmp_m4a"; \
+	fi && \
+	mv "$$tmp_m4a" "$$output_file" && \
 	echo "Done: $$output_file"; \
 	rm -f "$$concat_list"
 
