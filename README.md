@@ -12,6 +12,7 @@ Helpers to convert audio files to M4B format for audiobook management
 
 - `ffmpeg` must be installed and available in your PATH
 - `make` utility
+- `python3` and `curl` (online cover lookup)
 
 ## Installation
 
@@ -38,8 +39,14 @@ Helpers to convert audio files to M4B format for audiobook management
 
 ## Makefile Commands
 
-- `make` or `make all` - Convert all audio files to M4B format
-- `make status` - Show input files found and output files that will be generated
+- `make` or `make all` - Convert each top-level audio file in `input/` to its own M4B
+- `make concat [DIR=path]` - Join all files in `DIR` (default `input/`) into one M4B with a chapter per file
+- `make books` - One M4B with chapters per subfolder of `input/` (one folder per book)
+- `make status` - Show what is already converted and what is still pending
+
+Outputs are always named `Author - Title.m4b`. The author comes from the audio tags, else an `Author - Title` / `Title - Author` folder or file name, else the online lookup, else `Unknown Author`. Edition notes like `(Unabridged)` are dropped.
+
+Already-converted items are skipped: the output exists in `output/`, A book folder that already contains a ready-made `.m4b` is not re-encoded: `make books` copies that file to `output/` under the standard name. Use `make books FORCE=1` to re-encode it from the source audio instead.
 - `make clean` - Remove all generated M4B files from output directory
 - `make help` - Display usage information
 
@@ -55,11 +62,13 @@ Helpers to convert audio files to M4B format for audiobook management
 
 ## How it Works
 
-The Makefile uses `ffmpeg` to convert audio files:
+The Makefile calls `m4b.sh`, which uses `ffmpeg` to convert audio files:
 1. Converts input files to M4A format with AAC encoding
 2. Renames the M4A file to M4B extension (M4B is essentially M4A optimized for audiobooks)
 3. Uses 128k bitrate for good quality/size balance
 4. Applies `+faststart` flag for better streaming compatibility
+5. Embeds cover art: an image next to the audio, else art already embedded in the source audio, else a cover looked up online (Apple iTunes, then Open Library) and saved as `cover.jpg` in the book folder (`<name>.jpg` for single files). Replace that file and re-run to change it.
+6. For `concat`/`books`, adds one chapter per source file (title from the file's tags or its name)
 
 ## Example
 

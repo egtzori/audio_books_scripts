@@ -1,0 +1,6 @@
+# Audiobook media stays local: files are large (GitHub rejects >100 MB) and copyrighted.
+input/*
+output/*
+!input/.gitkeep
+!output/.gitkeep
+__pycache__/
